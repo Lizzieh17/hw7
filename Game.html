@@ -1,3 +1,8 @@
+<!--
+    Lizzie Howell
+    4/24/2024
+    Assignment 7 - Javascript Mrs.Pacman
+-->
 <head>
     <title>Assignment 7 - Mrs.Pacman</title>
     <meta charset="UTF-8" />
@@ -46,6 +51,7 @@
                 return colliding;
             }
             shouldIWrap() {
+                //check the sptire's position and see if it needs to teleport to the other side
                 if (this.x >= 800) {
                     this.x = 4;
                 } else if (this.x <= 0) {
@@ -70,6 +76,7 @@
         }
 
         class Wall extends Sprite {
+            //wall sprite, always exists and never moves
             constructor(x, y, w, h, image_url) {
                 super(x, y, w, h, image_url);
             }
@@ -82,6 +89,7 @@
         }
 
         class Fruit extends Sprite {
+            //fruit sprite, exists until 'eaten' by pac and bounces off walls
             constructor(x, y, w, h, image_url, d) {
                 super(x, y, w, h, image_url);
                 this.eaten = false;
@@ -132,6 +140,7 @@
             }
         }
         class Pellet extends Sprite {
+            //pellet sprite, exists until 'eaten' by pac and does not move
             constructor(x, y, w, h, image_url) {
                 super(x, y, w, h, image_url);
                 this.eaten = false;
@@ -150,6 +159,7 @@
             }
         }
         class Ghost extends Sprite {
+            //ghost sprite, exists until 'eaten' by pac and begins death seqeuence. Does not move
             constructor(x, y, w, h, image_url) {
                 super(x, y, w, h, image_url);
                 this.dying = false;
@@ -169,6 +179,7 @@
                 } else {
                     this.frame += 2;
                 }
+                //terminating condition
                 if (this.dead == false) {
                     setTimeout(() => {
                         this.deathSequence();
@@ -178,9 +189,9 @@
             isGhost() {
                 return true;
             }
-            //ghosts collide and then begin a death sequence and cycle thru pics, so when touched needs to be marked as dying
         }
         class Pacman extends Sprite {
+            //pacman sprite, always exists and moves based off of player's controls and animates
             constructor(x, y, w, h, image_url) {
                 super(x, y, w, h, image_url);
                 this.prevX = 400;
@@ -231,6 +242,7 @@
                 }
             }
             findFrame() {
+                //figure out what frame needs to be used for pacman images
                 return this.frame + this.direction * 3;
             }
             isPac() {
@@ -394,9 +406,11 @@
                 let ctx = this.canvas.getContext('2d');
                 ctx.clearRect(0, 0, 1000, 500);
                 if (this.model.editing == true) {
+                    //grey out the background if we are editing
                     ctx.fillStyle = 'grey';
                     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
                 } else {
+                    //if we are not editing, black out the background
                     ctx.fillStyle = 'black';
                     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
                 }
@@ -414,6 +428,7 @@
                     }
                 }
                 if (this.model.editing == true) {
+                    //after every thing is drawn, check if editing again and display edit mode and what we are adding if so
                     ctx.font = '20px Roboto';
                     ctx.fillStyle = 'yellow';
                     ctx.fillText('Editmode. Adding ' + this.model.beingAdded, 550, 30);
@@ -436,6 +451,7 @@
         }
 
         class Controller {
+            //controller class that handles the player's input
             constructor(model, view) {
                 this.model = model;
                 this.view = view;
@@ -469,24 +485,34 @@
             }
 
             onClick(event) {
+                //when we click on the screen we want to know if we are adding a sprite or not.
+                // these values will only be true when editmode is true
                 if (this.addPellets) {
                     this.model.sprites.push(
                         new Pellet(
                             event.pageX - this.view.canvas.offsetLeft,
-                            event.pageY - this.view.canvas.offsetTop,
+                            event.pageY - this.view.canvas.offsetTop + this.view.scrollY,
                             40,
                             25,
                             this.model.pelletImage
                         )
                     );
                 } else if (this.addGhosts) {
-                    this.model.sprites.push(new Ghost(event.pageX - this.view.canvas.offsetLeft, event.pageY - this.view.canvas.offsetTop, 40, 25));
+                    this.model.sprites.push(
+                        new Ghost(
+                            event.pageX - this.view.canvas.offsetLeft,
+                            event.pageY - this.view.canvas.offsetTop + this.view.scrollY,
+                            50,
+                            50,
+                            'sprite_images/ghosts_images/pinky1.png'
+                        )
+                    );
                 } else if (this.addFruit) {
                     if (this.model.sprites.length % 2 == 0) {
                         this.model.sprites.push(
                             new Fruit(
                                 event.pageX - this.view.canvas.offsetLeft,
-                                event.pageY - this.view.canvas.offsetTop,
+                                event.pageY - this.view.canvas.offsetTop + this.view.scrollY,
                                 30,
                                 25,
                                 this.model.strawberryImage,
@@ -497,7 +523,7 @@
                         this.model.sprites.push(
                             new Fruit(
                                 event.pageX - this.view.canvas.offsetLeft,
-                                event.pageY - this.view.canvas.offsetTop,
+                                event.pageY - this.view.canvas.offsetTop + this.view.scrollY,
                                 40,
                                 25,
                                 this.model.bananaImage,
@@ -527,23 +553,24 @@
                         this.addPellets = true;
                         this.addFruit = false;
                         this.addGhosts = false;
+                        //set string for what we are adding for display text
                         this.model.beingAdded = 'Pellets';
-                        console.log('Adding Pellets');
                     }
                     //addFruit mode
                     if (event.keyCode == 70) {
                         this.addFruit = true;
                         this.addPellets = false;
                         this.addGhosts = false;
+                        //set string for what we are adding for display text
                         this.model.beingAdded = 'Fruit';
-                        console.log('Adding Fruit');
                     }
+                    //addGhost mode
                     if (event.keyCode == 71) {
-                        this.addFruit = true;
+                        this.addFruit = false;
                         this.addPellets = false;
-                        this.addGhosts = false;
+                        this.addGhosts = true;
+                        //set string for what we are adding for display text
                         this.model.beingAdded = 'Ghosts';
-                        console.log('Adding Ghosts');
                     }
                 }
                 // enter/exit editmode
@@ -555,9 +582,9 @@
                         this.addPellets = true;
                         this.addFruit = false;
                         this.addGhosts = false;
+                        //set string for what we are adding for display text, always will be in addPellet mode first
                         this.model.beingAdded = 'Pellets';
                     }
-                    console.log('EditMode is: ' + this.editMode);
                 }
             }
 
@@ -609,6 +636,7 @@
     </script>
 </body>
 <div style="padding: 5px">
+    <!--Pretty pink box to display controls =D-->
     <div style="border: 1px solid black; background-color: pink; width: 250; height: 100; padding-left: 5px">
         e - toggle between edit mode<br />
         <b>When edit mode is active:</b> <br />
