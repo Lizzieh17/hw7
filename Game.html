@@ -437,14 +437,24 @@
             cameraUp() {
                 // scroll up if we are not at the highest Y, we are not colliding, and pacman is
                 // at a good position to scroll to be visible
-                if (this.model.getHighestWall() < this.scrollY && this.model.collidingWall == false && this.model.pacman.y < 700) {
+                if (
+                    this.model.getHighestWall() < this.scrollY &&
+                    this.model.collidingWall == false &&
+                    this.model.pacman.y < 700 &&
+                    this.model.pacman.prevY != this.model.pacman.y
+                ) {
                     this.scrollY -= this.model.pacman.speed;
                 }
             }
             cameraDown() {
                 // scroll down if we are not at the lowest Y, we are not colliding, and pacman
                 // is at a good position to scroll to be visible
-                if (this.model.getLowestWall() > this.scrollY + 500 && this.model.collidingWall == false && this.model.pacman.y > 200) {
+                if (
+                    this.model.getLowestWall() > this.scrollY + 500 &&
+                    this.model.collidingWall == false &&
+                    this.model.pacman.y > 200 &&
+                    this.model.pacman.prevY != this.model.pacman.y
+                ) {
                     this.scrollY += this.model.pacman.speed;
                 }
             }
