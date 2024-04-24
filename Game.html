@@ -584,6 +584,11 @@
                         this.addGhosts = false;
                         //set string for what we are adding for display text, always will be in addPellet mode first
                         this.model.beingAdded = 'Pellets';
+                    } else {
+                        this.addPellets = false;
+                        this.addFruit = false;
+                        this.addGhosts = false;
+                        this.model.beingAdded = '';
                     }
                 }
             }
