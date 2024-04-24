@@ -1,0 +1,619 @@
+<head>
+    <title>Assignment 7 - Mrs.Pacman</title>
+    <meta charset="UTF-8" />
+</head>
+<h1>Assignment 7 - Mrs.Pacman in JS By Lizzie Howell</h1>
+<body>
+    <br />
+    <canvas id="myCanvas" width="800" height="500" style="border: 3px solid blue"></canvas>
+
+    <script type="text/javascript">
+        class Sprite {
+            constructor(x1, y1, w1, h1, image_url) {
+                this.x = x1;
+                this.y = y1;
+                this.w = w1;
+                this.h = h1;
+                this.image = new Image();
+                this.image.src = image_url;
+            }
+            doestItCollide(sprite2) {
+                // collision detection between the sprite calling the method and the sprite
+                // passed as a parameter. Also updates the colliding variable for the return value
+                let sprite1Head = this.y;
+                let sprite1Left = this.x;
+                let sprite1Bottom = this.y + this.h;
+                let sprite1Right = this.x + this.w;
+                let sprite2Top = sprite2.y;
+                let sprite2Left = sprite2.x;
+                let sprite2Bottom = sprite2.y + sprite2.h;
+                let sprite2Right = sprite2.x + sprite2.w;
+                let colliding = false;
+                if (
+                    ((sprite1Head < sprite2Top && sprite1Bottom > sprite2Bottom) || (sprite1Bottom > sprite2Top && sprite1Bottom < sprite2Bottom)) &&
+                    sprite1Right > sprite2Left &&
+                    sprite1Left < sprite2Right
+                ) {
+                    colliding = true;
+                }
+                if (
+                    ((sprite1Left > sprite2Left && sprite1Left < sprite2Right) || (sprite1Right > sprite2Left && sprite1Right < sprite2Right)) &&
+                    sprite1Bottom > sprite2Top &&
+                    sprite1Head < sprite2Bottom
+                ) {
+                    colliding = true;
+                }
+                return colliding;
+            }
+            shouldIWrap() {
+                if (this.x >= 800) {
+                    this.x = 4;
+                } else if (this.x <= 0) {
+                    this.x = 775;
+                }
+            }
+            isPac() {
+                return false;
+            }
+            isWall() {
+                return false;
+            }
+            isPellet() {
+                return false;
+            }
+            isFruit() {
+                return false;
+            }
+            isGhost() {
+                return false;
+            }
+        }
+
+        class Wall extends Sprite {
+            constructor(x, y, w, h, image_url) {
+                super(x, y, w, h, image_url);
+            }
+            update() {
+                return true;
+            }
+            isWall() {
+                return true;
+            }
+        }
+
+        class Fruit extends Sprite {
+            constructor(x, y, w, h, image_url, d) {
+                super(x, y, w, h, image_url);
+                this.eaten = false;
+                this.dir = d;
+                this.ydir = 1;
+                this.xdir = 1;
+                this.speed = 8;
+            }
+            update() {
+                if (this.ydir == 0) {
+                    //make sure ydir is set
+                    this.ydir = 1;
+                }
+                if (this.xdir == 0) {
+                    //make sure xdir is set
+                    this.xdir = 1;
+                }
+                if (this.speed == 0) {
+                    //make sure a speed is set
+                    this.speed = 8;
+                }
+                //update y for fruit
+                if (this.dir == 1) {
+                    this.y += this.speed * this.ydir;
+                }
+                if (this.dir == 0) {
+                    this.x += this.speed * this.xdir;
+                }
+                //if marked as eaten, return false
+                if (this.eaten) {
+                    return false;
+                }
+                //fruit is not marked as eaten, so it still exists
+                return true;
+            }
+            isFruit() {
+                return true;
+            }
+            eatFruit() {
+                this.eaten = true;
+            }
+            changedir() {
+                if (this.dir == 1) {
+                    this.ydir *= -1;
+                } else {
+                    this.xdir *= -1;
+                }
+            }
+        }
+        class Pellet extends Sprite {
+            constructor(x, y, w, h, image_url) {
+                super(x, y, w, h, image_url);
+                this.eaten = false;
+            }
+            update() {
+                if (this.eaten) {
+                    return false;
+                }
+                return true;
+            }
+            isPellet() {
+                return true;
+            }
+            eatPellet() {
+                this.eaten = true;
+            }
+        }
+        class Ghost extends Sprite {
+            constructor(x, y, w, h, image_url) {
+                super(x, y, w, h, image_url);
+                this.dying = false;
+                this.dead = false;
+                this.frame = 1;
+            }
+            update() {
+                return !this.dead;
+            }
+            deathSequence() {
+                this.dying = true;
+                // //1 -> 3 -> 5
+                this.image.src = 'sprite_images/ghosts_images/ghost' + this.frame + '.png';
+                if (this.frame == 7) {
+                    this.dead = true;
+                    this.frame = 0;
+                } else {
+                    this.frame += 2;
+                }
+                if (this.dead == false) {
+                    setTimeout(() => {
+                        this.deathSequence();
+                    }, 2000);
+                }
+            }
+            isGhost() {
+                return true;
+            }
+            //ghosts collide and then begin a death sequence and cycle thru pics, so when touched needs to be marked as dying
+        }
+        class Pacman extends Sprite {
+            constructor(x, y, w, h, image_url) {
+                super(x, y, w, h, image_url);
+                this.prevX = 400;
+                this.prevY = 400;
+                this.speed = 5.0;
+                this.frame = 1;
+                this.direction = 1;
+                this.pacmanImages = [];
+                for (let i = 1; i <= 12; i++) {
+                    let string = 'sprite_images/pacman_images/pacman' + i + '.png';
+                    this.pacmanImages[i] = String(string);
+                }
+            }
+            update() {
+                return true;
+            }
+            movePacRight() {
+                //move pacman to the right by updating her x with her speed and set her previous x
+                this.prevX = this.x;
+                this.x += this.speed;
+            }
+            movePacLeft() {
+                //move pacman to the left by updating her x with her speed and set her previous x
+                this.prevX = this.x;
+                this.x -= this.speed;
+            }
+            movePacUp() {
+                //move pacman up by updating her y with her speed and set her previous y
+                this.prevY = this.y;
+                this.y -= this.speed;
+            }
+            movePacDown() {
+                //move pacman down by updating her y with her speed and set her previous y
+                this.prevY = this.y;
+                this.y += this.speed;
+            }
+            getOutOfWall() {
+                //get out of wall by setting pac's x and y to her previous x and y
+                this.x = this.prevX;
+                this.y = this.prevY;
+            }
+            animate(d) {
+                //animate pacman and update her frame and direction
+                this.frame++;
+                this.direction = d;
+                if (this.frame > 3) {
+                    this.frame = 1;
+                }
+            }
+            findFrame() {
+                return this.frame + this.direction * 3;
+            }
+            isPac() {
+                return true;
+            }
+        }
+
+        class Model {
+            constructor() {
+                this.sprites = [];
+                this.collidingWall = false;
+                this.editing = false;
+                this.beingAdded = '';
+                //create pacman
+                this.pacman = new Pacman(400, 400, 40, 40, 'sprite_images/pacman_images/pacman1.png');
+                this.sprites.push(this.pacman);
+                //hardcoded map
+                //walls
+                let wallimage = 'sprite_images/wall.png';
+                this.sprites.push(new Wall(1, 4, 781, 25, wallimage));
+                this.sprites.push(new Wall(746, 10, 40, 343, wallimage));
+                this.sprites.push(new Wall(3, 4, 31, 348, wallimage));
+                this.sprites.push(new Wall(750, 474, 31, 283, wallimage));
+                this.sprites.push(new Wall(6, 489, 21, 266, wallimage));
+                this.sprites.push(new Wall(282, 245, 194, 68, wallimage));
+                this.sprites.push(new Wall(140, 566, 89, 111, wallimage));
+                this.sprites.push(new Wall(539, 593, 122, 72, wallimage));
+                this.sprites.push(new Wall(3, 937, 779, 31, wallimage));
+                this.sprites.push(new Wall(754, 740, 26, 226, wallimage));
+                this.sprites.push(new Wall(5, 745, 26, 218, wallimage));
+                this.sprites.push(new Wall(166, 830, 510, 44, wallimage));
+                this.sprites.push(new Wall(105, 104, 149, 31, wallimage));
+                this.sprites.push(new Wall(108, 108, 47, 199, wallimage));
+                this.sprites.push(new Wall(513, 100, 161, 41, wallimage));
+                this.sprites.push(new Wall(639, 103, 36, 187, wallimage));
+                this.sprites.push(new Wall(313, 540, 34, 181, wallimage));
+                this.sprites.push(new Wall(435, 542, 45, 171, wallimage));
+                this.sprites.push(new Wall(337, 25, 71, 59, wallimage));
+                //pellets
+                this.pelletImage = 'sprite_images/pellet.png';
+                this.sprites.push(new Pellet(313, 417, 40, 25, this.pelletImage));
+                this.sprites.push(new Pellet(47, 419, 40, 25, this.pelletImage));
+                this.sprites.push(new Pellet(608, 416, 40, 25, this.pelletImage));
+                this.sprites.push(new Pellet(382, 621, 40, 25, this.pelletImage));
+                this.sprites.push(new Pellet(251, 773, 40, 25, this.pelletImage));
+                this.sprites.push(new Pellet(73, 643, 40, 25, this.pelletImage));
+                this.sprites.push(new Pellet(273, 623, 40, 25, this.pelletImage));
+                this.sprites.push(new Pellet(704, 738, 40, 25, this.pelletImage));
+                this.sprites.push(new Pellet(76, 63, 40, 25, this.pelletImage));
+                this.sprites.push(new Pellet(475, 426, 40, 25, this.pelletImage));
+                this.sprites.push(new Pellet(492, 185, 40, 25, this.pelletImage));
+                //ghosts
+                this.sprites.push(new Ghost(450, 400, 50, 50, 'sprite_images/ghosts_images/pinky1.png'));
+                this.sprites.push(new Ghost(405, 890, 50, 50, 'sprite_images/ghosts_images/inky7.png'));
+                this.sprites.push(new Ghost(530, 50, 50, 50, 'sprite_images/ghosts_images/sue5.png'));
+                this.sprites.push(new Ghost(697, 73, 50, 50, 'sprite_images/ghosts_images/blinky4.png'));
+                //fruits
+                this.strawberryImage = 'sprite_images/fruit_images/fruit2.png';
+                this.bananaImage = 'sprite_images/fruit_images/fruit7.png';
+                this.sprites.push(new Fruit(350, 766, 25, 30, this.strawberryImage, 1));
+                this.sprites.push(new Fruit(613, 730, 25, 30, this.bananaImage, 1));
+                this.sprites.push(new Fruit(566, 883, 25, 30, this.strawberryImage, 1));
+                this.sprites.push(new Fruit(184, 702, 25, 30, this.bananaImage, 1));
+                this.sprites.push(new Fruit(314, 870, 25, 30, this.strawberryImage, 1));
+                this.sprites.push(new Fruit(391, 761, 25, 30, this.bananaImage, 1));
+                this.sprites.push(new Fruit(362, 581, 25, 30, this.strawberryImage, 0));
+                this.sprites.push(new Fruit(673, 468, 25, 30, this.bananaImage, 0));
+                this.sprites.push(new Fruit(100, 417, 25, 30, this.strawberryImage, 0));
+                this.sprites.push(new Fruit(678, 890, 25, 30, this.bananaImage, 0));
+                this.sprites.push(new Fruit(382, 123, 25, 30, this.strawberryImage, 0));
+                this.sprites.push(new Fruit(541, 49, 25, 30, this.bananaImage, 0));
+                this.sprites.push(new Fruit(478, 882, 25, 30, this.strawberryImage, 1));
+                this.sprites.push(new Fruit(232, 873, 25, 30, this.bananaImage, 1));
+                this.sprites.push(new Fruit(374, 142, 25, 30, this.strawberryImage, 1));
+                this.sprites.push(new Fruit(136, 46, 25, 30, this.bananaImage, 1));
+                this.sprites.push(new Fruit(607, 44, 25, 30, this.strawberryImage, 1));
+                this.sprites.push(new Fruit(60, 599, 25, 30, this.bananaImage, 1));
+            }
+
+            update() {
+                this.collidingWall = false;
+                for (let i = 0; i < this.sprites.length; i++) {
+                    //this.sprites[i].update();
+                    let sprite1 = this.sprites[i];
+                    if (sprite1.update() == false) {
+                        this.sprites.splice(i, 1);
+                    }
+                    sprite1.shouldIWrap();
+                    //collision and fixing
+                    for (let j = 0; j < this.sprites.length; j++) {
+                        let sprite2 = this.sprites[j];
+                        //if the first sprite and second sprite are not the same and sprite1 collides with sprite2
+                        if (sprite1 != sprite2 && sprite1.doestItCollide(sprite2)) {
+                            //pac v pellet
+                            //pacman is colliding with the pellet and will mark it as eaten
+                            if (sprite1.isPac() && sprite2.isPellet()) {
+                                sprite2.eatPellet();
+                            }
+                            //pac v wall
+                            //pacman is colliding with a wall and will get out of that wall
+                            if (sprite1.isPac() && sprite2.isWall()) {
+                                this.collidingWall = true;
+                                sprite1.getOutOfWall();
+                            }
+                            //pac v fruit
+                            //pacman is colliding with a fruit and will mark it as eaten
+                            if (sprite1.isPac() && sprite2.isFruit()) {
+                                sprite2.eatFruit();
+                            }
+                            //fruit v wall
+                            //fruit is colliding will wall and will change its direction
+                            if (sprite1.isFruit() && sprite2.isWall()) {
+                                sprite1.changedir();
+                            }
+                            //ghosts!!
+                            //pac v ghost
+                            if (sprite1.isPac() && sprite2.isGhost()) {
+                                if (sprite2.dying == false) {
+                                    sprite2.deathSequence();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            getLowestWall() {
+                //grab the lowest wall's y for the scrolling mechanic
+                let lowestY = 0;
+                for (let i = 0; i < this.sprites.length; i++) {
+                    if (this.sprites[i].isWall()) {
+                        if (this.sprites[i].y > lowestY) {
+                            lowestY = this.sprites[i].y + this.sprites[i].h;
+                        }
+                    }
+                }
+                return lowestY;
+            }
+
+            getHighestWall() {
+                //grab the highest wall's y for the scrolling mechanic
+                let highestY = 1000;
+                for (let i = 0; i < this.sprites.length; i++) {
+                    if (this.sprites[i].isWall()) {
+                        if (this.sprites[i].y < highestY) {
+                            highestY = this.sprites[i].y;
+                        }
+                    }
+                }
+                return highestY;
+            }
+        }
+
+        class View {
+            constructor(model) {
+                this.model = model;
+                this.canvas = document.getElementById('myCanvas');
+                this.scrollY = 0;
+            }
+
+            update() {
+                let ctx = this.canvas.getContext('2d');
+                ctx.clearRect(0, 0, 1000, 500);
+                if (this.model.editing == true) {
+                    ctx.fillStyle = 'grey';
+                    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                } else {
+                    ctx.fillStyle = 'black';
+                    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                }
+                for (let i = 0; i < this.model.sprites.length; i++) {
+                    let sprite = this.model.sprites[i];
+                    if (sprite.isPac()) {
+                        let num = sprite.findFrame();
+                        sprite.image.src = sprite.pacmanImages[num];
+                        ctx.drawImage(sprite.image, sprite.x, sprite.y - this.scrollY, sprite.w, sprite.h);
+                    } else if (sprite.isGhost()) {
+                        //ghost needs to gradually change states
+                        ctx.drawImage(sprite.image, sprite.x, sprite.y - this.scrollY, sprite.w, sprite.h);
+                    } else {
+                        ctx.drawImage(sprite.image, sprite.x, sprite.y - this.scrollY, sprite.w, sprite.h);
+                    }
+                }
+                if (this.model.editing == true) {
+                    ctx.font = '20px Roboto';
+                    ctx.fillStyle = 'yellow';
+                    ctx.fillText('Editmode. Adding ' + this.model.beingAdded, 550, 30);
+                }
+            }
+            cameraUp() {
+                // scroll up if we are not at the highest Y, we are not colliding, and pacman is
+                // at a good position to scroll to be visible
+                if (this.model.getHighestWall() < this.scrollY && this.model.collidingWall == false && this.model.pacman.y < 700) {
+                    this.scrollY -= this.model.pacman.speed;
+                }
+            }
+            cameraDown() {
+                // scroll down if we are not at the lowest Y, we are not colliding, and pacman
+                // is at a good position to scroll to be visible
+                if (this.model.getLowestWall() > this.scrollY + 500 && this.model.collidingWall == false && this.model.pacman.y > 200) {
+                    this.scrollY += this.model.pacman.speed;
+                }
+            }
+        }
+
+        class Controller {
+            constructor(model, view) {
+                this.model = model;
+                this.view = view;
+                this.key_right = false;
+                this.key_left = false;
+                this.key_up = false;
+                this.key_down = false;
+                this.addFruit = false;
+                this.addPellets = false;
+                this.addGhosts = false;
+                this.editMode = false;
+
+                let self = this;
+                view.canvas.addEventListener('click', function (event) {
+                    self.onClick(event);
+                });
+                document.addEventListener(
+                    'keydown',
+                    function (event) {
+                        self.keyDown(event);
+                    },
+                    false
+                );
+                document.addEventListener(
+                    'keyup',
+                    function (event) {
+                        self.keyUp(event);
+                    },
+                    false
+                );
+            }
+
+            onClick(event) {
+                if (this.addPellets) {
+                    this.model.sprites.push(
+                        new Pellet(
+                            event.pageX - this.view.canvas.offsetLeft,
+                            event.pageY - this.view.canvas.offsetTop,
+                            40,
+                            25,
+                            this.model.pelletImage
+                        )
+                    );
+                } else if (this.addGhosts) {
+                    this.model.sprites.push(new Ghost(event.pageX - this.view.canvas.offsetLeft, event.pageY - this.view.canvas.offsetTop, 40, 25));
+                } else if (this.addFruit) {
+                    if (this.model.sprites.length % 2 == 0) {
+                        this.model.sprites.push(
+                            new Fruit(
+                                event.pageX - this.view.canvas.offsetLeft,
+                                event.pageY - this.view.canvas.offsetTop,
+                                30,
+                                25,
+                                this.model.strawberryImage,
+                                1
+                            )
+                        );
+                    } else {
+                        this.model.sprites.push(
+                            new Fruit(
+                                event.pageX - this.view.canvas.offsetLeft,
+                                event.pageY - this.view.canvas.offsetTop,
+                                40,
+                                25,
+                                this.model.bananaImage,
+                                0
+                            )
+                        );
+                    }
+                }
+            }
+
+            keyDown(event) {
+                if (event.keyCode == 39) this.key_right = true;
+                else if (event.keyCode == 37) this.key_left = true;
+                else if (event.keyCode == 38) this.key_up = true;
+                else if (event.keyCode == 40) this.key_down = true;
+            }
+
+            keyUp(event) {
+                if (event.keyCode == 39) this.key_right = false;
+                else if (event.keyCode == 37) this.key_left = false;
+                else if (event.keyCode == 38) this.key_up = false;
+                else if (event.keyCode == 40) this.key_down = false;
+
+                //addPellet mode
+                if (this.editMode) {
+                    if (event.keyCode == 80) {
+                        this.addPellets = true;
+                        this.addFruit = false;
+                        this.addGhosts = false;
+                        this.model.beingAdded = 'Pellets';
+                        console.log('Adding Pellets');
+                    }
+                    //addFruit mode
+                    if (event.keyCode == 70) {
+                        this.addFruit = true;
+                        this.addPellets = false;
+                        this.addGhosts = false;
+                        this.model.beingAdded = 'Fruit';
+                        console.log('Adding Fruit');
+                    }
+                    if (event.keyCode == 71) {
+                        this.addFruit = true;
+                        this.addPellets = false;
+                        this.addGhosts = false;
+                        this.model.beingAdded = 'Ghosts';
+                        console.log('Adding Ghosts');
+                    }
+                }
+                // enter/exit editmode
+                if (event.keyCode == 69) {
+                    //change editmode value
+                    this.editMode = !this.editMode;
+                    this.model.editing = this.editMode;
+                    if (this.editMode == true) {
+                        this.addPellets = true;
+                        this.addFruit = false;
+                        this.addGhosts = false;
+                        this.model.beingAdded = 'Pellets';
+                    }
+                    console.log('EditMode is: ' + this.editMode);
+                }
+            }
+
+            update() {
+                //model.pacman.savePac();
+                if (this.key_right) {
+                    //move pacman to the right and animate her
+                    this.model.pacman.movePacRight();
+                    this.model.pacman.animate(2);
+                }
+                if (this.key_left) {
+                    //move pacman to the left and animate her
+                    this.model.pacman.movePacLeft();
+                    this.model.pacman.animate(0);
+                }
+                if (this.key_down) {
+                    //move pacman down, scroll down, and animate her
+                    this.view.cameraDown();
+                    this.model.pacman.movePacDown();
+                    this.model.pacman.animate(3);
+                }
+                if (this.key_up) {
+                    //move pacman up, scroll up, and animate her
+                    this.view.cameraUp();
+                    this.model.pacman.movePacUp();
+                    this.model.pacman.animate(1);
+                }
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.model = new Model();
+                this.view = new View(this.model);
+                this.controller = new Controller(this.model, this.view);
+            }
+
+            onTimer() {
+                this.controller.update();
+                this.model.update();
+                this.view.update();
+            }
+        }
+
+        let game = new Game();
+        let timer = setInterval(function () {
+            game.onTimer();
+        }, 40);
+    </script>
+</body>
+<div style="padding: 5px">
+    <div style="border: 1px solid black; background-color: pink; width: 250; height: 100; padding-left: 5px">
+        e - toggle between edit mode<br />
+        <b>When edit mode is active:</b> <br />
+        g - add ghosts is true<br />
+        p - add pellets is true<br />
+        f - add fruit is true
+    </div>
+</div>

@@ -1,0 +1,765 @@
+<!--Your game should include all the major features of assignment 5, including Ms Pacman, Walls, Ghosts, Fruits, 
+Pellets, and collision detection. You should be able to enter edit mode and create more items on the fly. 
+You do not need to save your new map, or load a map from a file - your map can be hardcoded for this assignment. 
+Put your name, date, and assignment description at the top of the file in the comments. Update the title bar.
+pacman should still animate, should still scroll -->
+
+<head>
+    <title>Assignment 7 - Mrs. Pacman</title>
+    <meta charset="UTF-8" />
+</head>
+<body>
+    <br />
+    <canvas
+        id="myCanvas"
+        width="1000"
+        height="500"
+        style="border: 1px solid #cccccc"
+    ></canvas>
+
+    <script type="text/javascript">
+        // our abstract sprite class that fruit, pellet, pacman, and wall extend
+        class Sprite {
+            constructor() {
+                this.x = 0;
+                this.y = 0;
+                this.w = 0;
+                this.h = 0;
+            }
+            shouldIWrap() {
+                if (this.x >= 775) {
+                    this.x = 4;
+                } else if (this.x <= 4) {
+                    this.x = 775;
+                }
+            }
+            spriteClicked(mouseX, mouseY) {
+                // returns true if the mouse's x and y are where a sprite is
+                return (
+                    mouseX > this.x &&
+                    mouseX < this.x + this.w &&
+                    mouseY > this.y &&
+                    mouseY < this.y + this.h
+                );
+            }
+            doesItCollide(sprite2) {
+                // collision detection between the sprite calling the method and the sprite passed as a parameter. Also updates the colliding variable for the return value
+                const sprite1Head = this.y;
+                const sprite1Left = this.x;
+                const sprite1Bottom = this.y + this.h;
+                const sprite1Right = this.x + this.w;
+                const sprite2Top = sprite2.getY();
+                const sprite2Left = sprite2.getX();
+                const sprite2Bottom = sprite2.getY() + sprite2.getH();
+                const sprite2Right = sprite2.getX() + sprite2.getW();
+                let colliding = false;
+                if (
+                    ((sprite1Head < sprite2Top &&
+                        sprite1Bottom > sprite2Bottom) ||
+                        (sprite1Bottom > sprite2Top &&
+                            sprite1Bottom < sprite2Bottom)) &&
+                    sprite1Right > sprite2Left &&
+                    sprite1Left < sprite2Right
+                ) {
+                    colliding = true;
+                }
+                if (
+                    ((sprite1Left > sprite2Left &&
+                        sprite1Left < sprite2Right) ||
+                        (sprite1Right > sprite2Left &&
+                            sprite1Right < sprite2Right)) &&
+                    sprite1Bottom > sprite2Top &&
+                    sprite1Head < sprite2Bottom
+                ) {
+                    colliding = true;
+                }
+                return colliding;
+            }
+            isMoving() {
+                return false;
+            }
+            isWall() {
+                return false;
+            }
+            isPellet() {
+                return false;
+            }
+            isFruit() {
+                return false;
+            }
+            isPac() {
+                return false;
+            }
+            getX() {
+                return this.x;
+            }
+            getY() {
+                return this.y;
+            }
+            getW() {
+                return this.w;
+            }
+            getH() {
+                return this.h;
+            }
+            // abstract methods each class that extends sprite should have
+            draw(g, scrollY) {}
+            update() {}
+        }
+
+        // Pacman class: our pacman sprite with her image, movement, and ability to get out of walls
+        class Pacman extends Sprite {
+            static pacmanImages = null;
+            static PAC_WIDTH = 40;
+            static PAC_HEIGHT = 40;
+            speed;
+            currentImage;
+            direction;
+            frame;
+            prevX;
+            prevY;
+            MAX_IMAGES = 3;
+            MAX_DIRECTION = 4;
+            constructor(x = 400, y = 400) {
+                this.super();
+                this.x = x;
+                this.y = y;
+                this.w = Pacman.PAC_WIDTH;
+                this.h = Pacman.PAC_HEIGHT;
+                this.speed = 5.0;
+                this.direction = 0;
+                this.frame = 0;
+                this.prevX = 400;
+                this.prevY = 400;
+                Pacman.pacmanImages = new Array(Pacman.MAX_DIRECTION)
+                    .fill(null)
+                    .map(() => new Array(Pacman.MAX_IMAGES).fill(null));
+                if (!this.currentImage) {
+                    try {
+                        // i = direction, z = image
+                        let count = 0;
+                        for (let d = 0; d < 4; d++) {
+                            for (let z = 0; z < 3; z++) {
+                                count++;
+                                Pacman.pacmanImages[d][z] = View.loadImage(
+                                    `sprite_images/pacman_images/pacman${count}.png`
+                                );
+                            }
+                        }
+                        this.currentImage = Pacman.pacmanImages[0][0];
+                    } catch (e) {
+                        console.error(e);
+                        process.exit(1);
+                    }
+                }
+            }
+            draw(g, scrollY) {
+                g.drawImage(
+                    this.currentImage,
+                    this.x,
+                    this.y - scrollY,
+                    this.w,
+                    this.h,
+                    null
+                );
+            }
+            update() {
+                // pacman always exists
+                return true;
+            }
+            savePac() {
+                // save pac's x and y to her previous x and y
+                this.prevX = this.x;
+                this.prevY = this.y;
+            }
+            getOutOfWall() {
+                // get out of wall by setting pac's x and y to her previous x and y
+                this.x = this.prevX;
+                this.y = this.prevY;
+            }
+            setImage(d, i) {
+                // set image based on pacs direction and which frame to update to
+                this.direction = d;
+                this.frame = i;
+                this.currentImage = Pacman.pacmanImages[d][i];
+            }
+            animate(d) {
+                // animate pacman and update her frame and direction
+                this.direction = d;
+                this.frame++;
+                if (this.frame >= this.MAX_IMAGES) {
+                    this.frame = 0;
+                }
+                this.setImage(this.direction, this.frame);
+            }
+            movePacRight() {
+                // move pacman to the right by updating her x with her speed and set her previous x
+                this.prevX = this.x;
+                this.x += this.speed;
+            }
+            movePacLeft() {
+                // move pacman to the left by updating her x with her speed and set her previous x
+                this.prevX = this.x;
+                this.x -= this.speed;
+            }
+            movePacUp() {
+                // move pacman up by updating her y with her speed and set her previous y
+                this.prevY = this.y;
+                this.y -= this.speed;
+            }
+            movePacDown() {
+                // move pacman down by updating her y with her speed and set her previous y
+                this.prevY = this.y;
+                this.y += this.speed;
+            }
+            isPac() {
+                return true;
+            }
+            isMoving() {
+                return true;
+            }
+            getPacSpeed() {
+                return this.speed;
+            }
+            toString() {
+                return `Pacman (x,y) = (${this.x}, ${this.y}), Previous Pacman (x,y) = (${this.prevX}, ${this.prevY})`;
+            }
+        }
+
+        // Fruit class, uses strawberry image and moves in the y direction by bouncing off walls
+        class Fruit extends Sprite {
+            static fruit_image = null;
+            static FRUIT_WIDTH = 25;
+            static FRUIT_HEIGHT = 30;
+            constructor(x, y, dir) {
+                this.x = x;
+                this.y = y;
+                this.w = FRUIT_WIDTH;
+                this.h = FRUIT_HEIGHT;
+                this.eaten = false;
+                this.ydir = 1;
+                this.xdir = 1;
+                this.dir = dir;
+                this.speed = 8;
+                if (fruit_image === null) {
+                    try {
+                        fruit_image = View.loadImage(
+                            "sprite_images/fruit_images/fruit2.png"
+                        );
+                    } catch (e) {
+                        console.error(e);
+                        System.exit(1);
+                    }
+                }
+            }
+            update() {
+                if (this.ydir === 0) {
+                    // Make sure ydir is set
+                    this.ydir = 1;
+                }
+                if (this.xdir === 0) {
+                    // Make sure xdir is set
+                    this.xdir = 1;
+                }
+                if (this.speed === 0) {
+                    // Make sure a speed is set
+                    this.speed = 8;
+                }
+                // Update y for fruit
+                if (this.dir === 1) {
+                    this.y += this.speed * this.ydir;
+                }
+                if (this.dir === 0) {
+                    this.x += this.speed * this.xdir;
+                }
+                // If marked as eaten, return false
+                if (this.eaten) {
+                    return false;
+                }
+                // Fruit is not marked as eaten, so it still exists
+                return true;
+            }
+            draw(g, scrollY) {
+                g.drawImage(
+                    fruit_image,
+                    this.x,
+                    this.y - scrollY,
+                    this.w,
+                    this.h,
+                    null
+                );
+            }
+            isFruit() {
+                return true;
+            }
+            isMoving() {
+                return true;
+            }
+            eatFruit() {
+                // Mark fruit as eaten
+                this.eaten = true;
+            }
+            changedir() {
+                // Change direction to opposite
+                if (this.dir === 1) {
+                    this.ydir *= -1;
+                } else {
+                    this.xdir *= -1;
+                }
+            }
+            toString() {
+                return "Fruit (x,y) = (" + this.x + ", " + this.y + ")";
+            }
+        }
+
+        // wall class: extends the sprite class
+        class Wall extends Sprite {
+            static wall_image = null;
+            constructor(x, y, w, h) {
+                this.super();
+                this.x = x;
+                this.y = y;
+                this.w = w;
+                this.h = h;
+            }
+            update() {
+                // walls will always exist in this way, they are removed by the mouse in controller.
+                return true;
+            }
+            draw(g, scrollY) {
+                g.drawImage(
+                    Wall.wall_image,
+                    this.x,
+                    this.y - scrollY,
+                    this.w,
+                    this.h
+                );
+            }
+            isWall() {
+                return true;
+            }
+            toString() {
+                return `Wall (x,y) = (${this.x}, ${this.y}), w = ${this.w}, h = ${this.h}`;
+            }
+        }
+
+        // pellet class: our pellet extends the sprite class; pellet draws itself, updates if it is eaten or not, and marshalls itself
+        class Pellet extends Sprite {
+            static pellet_image = null;
+            static PELLET_WIDTH = 40;
+            static PELLET_HEIGHT = 25;
+            constructor(x, y) {
+                this.super();
+                this.x = x;
+                this.y = y;
+                this.w = Pellet.PELLET_WIDTH;
+                this.h = Pellet.PELLET_HEIGHT;
+                this.eaten = false;
+                if (Pellet.pellet_image == null) {
+                    try {
+                        Pellet.pellet_image = View.loadImage(
+                            "sprite_images/pellet.png"
+                        );
+                    } catch (e) {
+                        console.error(e);
+                        process.exit(1);
+                    }
+                }
+            }
+            update() {
+                // if marked as eaten, then return false and get removed
+                // if not marked (i.e. the pellet still exists) then return true
+                return !this.eaten;
+            }
+            draw(g, scrollY) {
+                g.drawImage(
+                    Pellet.pellet_image,
+                    this.x,
+                    this.y - scrollY,
+                    this.w,
+                    this.h
+                );
+            }
+            eatPellet() {
+                this.eaten = true;
+            }
+            isPellet() {
+                return true;
+            }
+            toString() {
+                return `Pellet (x,y) = (${this.x}, ${this.y})`;
+            }
+        }
+
+        // Model class: handles sprites and updates them by iterating over the sprites array list
+        class Model {
+            constructor() {
+                this.currentAddMode = "";
+                this.collidingWall = false;
+                this.editing = false;
+                this.sprites = [];
+                this.pacman = new Pacman(50, 50);
+                this.sprites.push(this.pacman);
+                this.sprites.push(new Wall(1, 4, 781, 25));
+                this.sprites.push(new Wall(746, 10, 40, 343));
+                this.sprites.push(new Wall(3, 4, 31, 348));
+                this.sprites.push(new Wall(750, 474, 31, 283));
+                this.sprites.push(new Wall(6, 489, 21, 266));
+                this.sprites.push(new Wall(282, 245, 194, 68));
+                this.sprites.push(new Wall(140, 566, 89, 111));
+                this.sprites.push(new Wall(539, 593, 122, 72));
+                this.sprites.push(new Wall(3, 937, 779, 31));
+                this.sprites.push(new Wall(754, 740, 26, 226));
+                this.sprites.push(new Wall(5, 745, 26, 218));
+                this.sprites.push(new Wall(166, 830, 510, 44));
+                this.sprites.push(new Wall(105, 104, 149, 31));
+                this.sprites.push(new Wall(108, 108, 47, 199));
+                this.sprites.push(new Wall(513, 100, 161, 41));
+                this.sprites.push(new Wall(639, 103, 36, 187));
+                this.sprites.push(new Wall(313, 540, 34, 181));
+                this.sprites.push(new Wall(435, 542, 45, 171));
+                this.sprites.push(new Wall(337, 25, 71, 59));
+            }
+            update() {
+                this.collidingWall = false;
+                for (let i = 0; i < this.sprites.length; i++) {
+                    const sprite1 = this.sprites[i];
+                    if (!sprite1.update()) {
+                        this.sprites.splice(i, 1);
+                        i--;
+                        continue;
+                    }
+                    if (!sprite1.isMoving()) {
+                        continue;
+                    }
+                    sprite1.shouldIWrap();
+                    for (let j = 0; j < this.sprites.length; j++) {
+                        const sprite2 = this.sprites[j];
+                        if (i !== j && sprite1.doestItCollide(sprite2)) {
+                            if (sprite1.isPac() && sprite2.isPellet()) {
+                                sprite2.eatPellet();
+                            }
+                            if (sprite1.isPac() && sprite2.isWall()) {
+                                this.collidingWall = true;
+                                this.pacman.getOutOfWall();
+                            }
+                            if (sprite1.isPac() && sprite2.isFruit()) {
+                                sprite2.eatFruit();
+                            }
+                            if (sprite1.isFruit() && sprite2.isWall()) {
+                                sprite1.changedir();
+                            }
+                        }
+                    }
+                }
+            }
+            arrowKeyPressed(direction) {
+                this.pacman.animate(direction);
+            }
+            addPellet(mouseX, mouseY, scrollY) {
+                if (scrollY !== 0) {
+                    mouseY += scrollY;
+                }
+                const pellet = new Pellet(mouseX, mouseY);
+                this.sprites.push(pellet);
+            }
+            addFruit(mouseX, mouseY, scrollY, fruitDir) {
+                if (scrollY !== 0) {
+                    mouseY += scrollY;
+                }
+                const fruit = new Fruit(mouseX, mouseY, fruitDir);
+                this.sprites.push(fruit);
+            }
+            clearScreen() {
+                console.log("Clearing sprites...");
+                this.sprites = [];
+            }
+            isCollidingWithWall() {
+                return this.collidingWall;
+            }
+            isEditing() {
+                return this.editing;
+            }
+            getModelSpeed() {
+                return this.pacman.getPacSpeed();
+            }
+            getLowestWallY() {
+                let lowestY = 0;
+                for (let i = 0; i < this.sprites.length; i++) {
+                    if (this.sprites[i].isWall()) {
+                        if (this.sprites[i].getY() > lowestY) {
+                            lowestY =
+                                this.sprites[i].getY() + this.sprites[i].getH();
+                        }
+                    }
+                }
+                return lowestY;
+            }
+            getHighestWallY() {
+                let highestY = Game.WINDOW_HEIGHT;
+                for (let i = 0; i < this.sprites.length; i++) {
+                    if (this.sprites[i].isWall()) {
+                        if (this.sprites[i].getY() < highestY) {
+                            highestY = this.sprites[i].getY();
+                        }
+                    }
+                }
+                return highestY;
+            }
+            getAddMode() {
+                return this.currentAddMode;
+            }
+            setEditing(value) {
+                this.editing = value;
+            }
+            setAddMode(value) {
+                this.currentAddMode = value;
+            }
+        }
+
+        class View {
+            constructor(c, m) {
+                this.super();
+                this.model = m;
+                this.scrollY = 0;
+                c.setView(this);
+            }
+            paintComponent(g) {
+                if (this.model.isEditing()) {
+                    // if we are editing, change color of background and add text at the bottom right of the screen
+                    g.fillStyle = "rgb(200, 180, 180)";
+                    g.fillRect(0, 0, this.getWidth(), this.getHeight());
+                    g.fillStyle = "rgb(245, 245, 10)";
+                    g.fillText(
+                        "Edit Mode: " + this.model.getAddMode(),
+                        600,
+                        750
+                    );
+                } else {
+                    g.fillStyle = "rgb(0)";
+                    g.fillRect(0, 0, this.getWidth(), this.getHeight());
+                }
+                for (let i = 0; i < this.model.sprites.length; i++) {
+                    this.model.sprites[i].draw(g, this.scrollY);
+                }
+            }
+            static loadImage(filepath) {
+                let image = new Image();
+                image.src = filepath;
+                return image;
+            }
+            cameraUp() {
+                // scroll up if we are not at the highest Y, we are not colliding, and pacman is at a good position to scroll to be visible
+                if (
+                    this.model.getHighestWallY() < this.scrollY &&
+                    !this.model.isCollidingWithWall() &&
+                    this.model.pacman.getY() < 700
+                ) {
+                    this.scrollY -= this.model.getModelSpeed();
+                }
+            }
+            cameraDown() {
+                // scroll down if we are not at the lowest Y, we are not colliding, and pacman is at a good position to scroll to be visible
+                if (
+                    this.model.getLowestWallY() - 760 > this.scrollY &&
+                    !this.model.isCollidingWithWall() &&
+                    this.model.pacman.getY() > 200
+                ) {
+                    this.scrollY += this.model.getModelSpeed();
+                }
+            }
+
+            getScrollY() {
+                return this.scrollY;
+            }
+        }
+
+        // Controller class: handles user input to affect sprites
+        class Controller {
+            constructor(model) {
+                this.model = model;
+                this.addPellets = false;
+                this.addFruit = false;
+                this.editMode = false;
+                this.keyLeft = false;
+                this.keyRight = false;
+                this.keyUp = false;
+                this.keyDown = false;
+            }
+            setView(view) {
+                this.view = view;
+            }
+            actionPerformed(e) {}
+            mousePressed(e) {
+                if (this.editMode) {
+                    if (this.addPellets) {
+                        // Add a pellet to the screen where the mouse is
+                        this.model.addPellet(
+                            e.getX(),
+                            e.getY(),
+                            this.view.getScrollY()
+                        );
+                    } else if (this.addFruit) {
+                        // Add a strawberry to the screen where the fruit is
+                        const fruitDir = this.model.sprites.length % 2;
+                        this.model.addFruit(
+                            e.getX(),
+                            e.getY(),
+                            this.view.getScrollY(),
+                            fruitDir
+                        );
+                    }
+                }
+            }
+            mouseReleased(e) {}
+            keyPressed(e) {
+                const key = e.getKeyChar().toLowerCase();
+                // Quit
+                if (key === "q") {
+                    System.exit(1);
+                }
+                switch (e.getKeyCode()) {
+                    case KeyEvent.VK_RIGHT:
+                        this.keyRight = true;
+                        break;
+                    case KeyEvent.VK_LEFT:
+                        this.keyLeft = true;
+                        break;
+                    case KeyEvent.VK_UP:
+                        this.keyUp = true;
+                        break;
+                    case KeyEvent.VK_DOWN:
+                        this.keyDown = true;
+                        break;
+                    case KeyEvent.VK_ESCAPE:
+                        System.exit(1);
+                        break;
+                }
+            }
+            keyReleased(e) {
+                const key = e.getKeyChar().toLowerCase();
+                // Add pellet mode
+                if (key === "p") {
+                    this.addPellets = true;
+                    this.addFruit = false;
+                    this.addWalls = false;
+                    this.deleteWalls = false;
+                    this.model.setAddMode("Adding Pellets");
+                }
+                // Add fruit mode
+                if (key === "f") {
+                    this.addFruit = true;
+                    this.addWalls = false;
+                    this.addPellets = false;
+                    this.model.setAddMode("Adding Fruits");
+                }
+                // Enter edit mode
+                if (key === "e") {
+                    // Change edit mode value
+                    this.editMode = !this.editMode;
+                    // Tell model we are editing so string on screen updates
+                    this.model.setEditing(this.editMode);
+                }
+                // Clear screen of all sprites
+                if (key === "c") {
+                    if (this.model.sprites.length > 0) {
+                        this.model.clearScreen();
+                        console.log("Cleared all Sprites.");
+                    } else {
+                        console.log("No Sprites to clear.");
+                    }
+                }
+                switch (e.getKeyCode()) {
+                    case KeyEvent.VK_RIGHT:
+                        this.keyRight = false;
+                        break;
+                    case KeyEvent.VK_LEFT:
+                        this.keyLeft = false;
+                        break;
+                    case KeyEvent.VK_UP:
+                        this.keyUp = false;
+                        break;
+                    case KeyEvent.VK_DOWN:
+                        this.keyDown = false;
+                        break;
+                }
+            }
+            keyTyped(e) {}
+            update() {
+                this.model.pacman.savePac();
+                if (this.keyRight) {
+                    // Move pacman to the right and animate her
+                    this.model.pacman.movePacRight();
+                    this.model.arrowKeyPressed(2);
+                }
+                if (this.keyLeft) {
+                    // Move pacman to the left and animate her
+                    this.model.pacman.movePacLeft();
+                    this.model.arrowKeyPressed(0);
+                }
+                if (this.keyDown) {
+                    // Move pacman down, scroll down, and animate her
+                    this.model.pacman.movePacDown();
+                    this.view.cameraDown();
+                    this.model.arrowKeyPressed(3);
+                }
+                if (this.keyUp) {
+                    // Move pacman up, scroll up, and animate her
+                    this.model.pacman.movePacUp();
+                    this.view.cameraUp();
+                    this.model.arrowKeyPressed(1);
+                }
+            }
+        }
+
+        // Game class: our main game class which holds our main function
+        class Game {
+            constructor() {
+                this.model = new Model();
+                this.controller = new Controller(this.model);
+                this.view = new View(this.controller, this.model);
+                this.windowHeight = 800;
+                this.windowWidth = 800;
+                this.setTitle("Assignment 7 - Mrs.Pacman by Lizzie Howell");
+                this.setSize(this.windowWidth, this.windowHeight);
+                this.setFocusable(true);
+                this.getContentPane().add(this.view);
+                this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                this.setVisible(true);
+                this.view.addMouseListener(this.controller);
+                this.addKeyListener(this.controller);
+                this.model.load();
+                this.controller.setView(this.view);
+            }
+
+            static main(args) {
+                const g = new Game();
+                g.run();
+            }
+
+            run() {
+                console.log(
+                    "'c' or 'C' to remove all walls\n'e' or 'E' to enter edit mode\n'a' or 'A' to add walls\n'p' or 'P' to add pellets\n'f' or 'F' to add fruit\n'r' or 'R' to delete walls\n's' or 'S' to save map\n'l' or 'L' to load map\n'q','Q', or 'ESC' to quit"
+                );
+
+                const updateLoop = () => {
+                    this.controller.update();
+                    this.model.update();
+                    this.view.repaint(); // This will indirectly call View.paintComponent
+                    setTimeout(updateLoop, 40); // Go to sleep for 40 milliseconds
+                };
+
+                updateLoop();
+            }
+        }
+
+        // Create an instance of the Game class and call its main function
+        const gameInstance = new Game();
+        gameInstance.main();
+
+        let game = new Game();
+        let timer = setInterval(function () {
+            game.onTimer();
+        }, 40);
+    </script>
+</body>
